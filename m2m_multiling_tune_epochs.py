@@ -117,17 +117,6 @@ def get_trainer(tok, mdl, trainset, devset, devmeta, outdir, batch_size = 12, gr
 		compute_metrics=compute_metrics
 	)
 
-def loadextras(filename):
-	with open(filename, "r", encoding='utf-8') as fh:
-		return [t.strip() for t in fh]
-
-def loadtok(initmdl):
-	extratoks = loadextras("FINNO-UGRIC_2022/m2mtune/extra_tokens.txt")
-	
-	result = gettok(initmdl, "liv vro sma sme smn sms smj".split(), extratoks)
-		
-	return result
-
 def loadmdl(initmdl, newnum):
 	result = AutoModelForSeq2SeqLM.from_pretrained(initmdl)
 	
@@ -136,22 +125,27 @@ def loadmdl(initmdl, newnum):
 	return result
 
 if __name__ == "__main__":
-	_, initmdl, outdir, trainfiles, devfiles, num_epochs = sys.argv
-          	
-	log("Loading tokenizer")
-	tokenizer = loadtok(initmdl)
+	_, outdir = sys.argv
+
+	log("Load model")         	
+	tokenizer = M2M100Tokenizer.from_pretrained("facebook/m2m100_418M")
+	model = loadmdl("facebook/m2m100_418M", len(tokenizer))
 	
-	log("Loading data")
-	traindata, _ = prepdata(trainfiles, tokenizer, initmdl)
+	log("Load dataset")
+	data = load_dataset('masakhane/mafand', 'en-hau')
+	# data = load_dataset("yelp_review_full")
+
+	small_train_data = data['train'].shuffle(seed=42).select(range(10000))
+	small_test_data = data['test'].shuffle(seed=42).select(range(1000))
 	
-	log("Loading dev")
-	devdata, meta = prepdata(devfiles, tokenizer, initmdl)
-	
-	log("Loading model")
-	model = loadmdl(initmdl, len(tokenizer))
+	def tokenize_function(examples):
+		return tokenizer(examples["text"], padding="max_length", truncation=True)
+
+	traindata = small_train_data.map(tokenize_function, batched=True)
+	devdata = small_test_data.map(tokenize_function, batched=True)
 	
 	log("Start training")
-	trainer = get_trainer(tokenizer, model, traindata, devdata, meta, outdir, num_epochs = int(num_epochs))
+	trainer = get_trainer(tokenizer, model, traindata, devdata, None, outdir, num_epochs = 10)
 	
 	log("Starting training")
 	trainer.train()
