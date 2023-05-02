@@ -132,10 +132,10 @@ if __name__ == "__main__":
 	model = loadmdl("facebook/m2m100_418M", len(tokenizer))
 	
 	log("Load dataset")
-	data = load_dataset('masakhane/mafand', 'en-hau')
-	# data = load_dataset("yelp_review_full")
+	# data = load_dataset('masakhane/mafand', 'en-hau')
+	data = load_dataset("yelp_review_full")
 
-	small_train_data = data['train'].shuffle(seed=42).select(range(10000))
+	small_train_data = data['train'].shuffle(seed=42).select(range(5800))
 	small_test_data = data['test'].shuffle(seed=42).select(range(1000))
 	
 	def tokenize_function(examples):
@@ -143,6 +143,10 @@ if __name__ == "__main__":
 
 	traindata = small_train_data.map(tokenize_function, batched=True)
 	devdata = small_test_data.map(tokenize_function, batched=True)
+
+	traindata = traindata.remove_columns(["label"])
+	devdata = devdata.remove_columns(["label"])
+	print(traindata)
 	
 	log("Start training")
 	trainer = get_trainer(tokenizer, model, traindata, devdata, None, outdir, num_epochs = 10)
