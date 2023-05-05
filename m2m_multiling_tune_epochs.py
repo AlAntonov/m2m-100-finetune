@@ -69,7 +69,7 @@ def prepdata(filenames, tokenizer, mdlid):
 	
 	return concatenate_datasets(datasets), meta
 
-def get_trainer(tok, mdl, trainset, devset, devmeta, outdir, batch_size = 12, gradient_accumulation_steps = 8, learning_rate = 5e-05, weight_decay = 0.00, num_epochs = 10):
+def get_trainer(tok, mdl, trainset, devset, devmeta, outdir, batch_size = 1, gradient_accumulation_steps = 8, learning_rate = 5e-05, weight_decay = 0.00, num_epochs = 10):
 	args = Seq2SeqTrainingArguments(
 		 outdir,
 		 evaluation_strategy = "epoch",
@@ -135,8 +135,8 @@ if __name__ == "__main__":
 	# data = load_dataset('masakhane/mafand', 'en-hau')
 	data = load_dataset("yelp_review_full")
 
-	small_train_data = data['train'].shuffle(seed=42).select(range(5800))
-	small_test_data = data['test'].shuffle(seed=42).select(range(1000))
+	small_train_data = data['train'].shuffle(seed=42).select(range(100))
+	small_test_data = data['test'].shuffle(seed=42).select(range(10))
 	
 	def tokenize_function(examples):
 		return tokenizer(examples["text"], padding="max_length", truncation=True)
@@ -146,6 +146,10 @@ if __name__ == "__main__":
 
 	traindata = traindata.remove_columns(["label"])
 	devdata = devdata.remove_columns(["label"])
+	traindata = traindata.add_column("decoder_input_ids", [t["input_ids"] for t in traindata])
+	devdata = devdata.add_column("decoder_input_ids", [t["input_ids"] for t in devdata])
+	traindata = traindata.add_column("labels", [t["input_ids"] for t in traindata])
+	devdata = devdata.add_column("labels", [t["input_ids"] for t in devdata])
 	print(traindata)
 	
 	log("Start training")
