@@ -69,7 +69,7 @@ def prepdata(filenames, tokenizer, mdlid):
 	
 	return concatenate_datasets(datasets), meta
 
-def get_trainer(tok, mdl, trainset, devset, devmeta, outdir, batch_size = 1, gradient_accumulation_steps = 8, learning_rate = 5e-05, weight_decay = 0.00, num_epochs = 10):
+def get_trainer(tok, mdl, trainset, devset, devmeta, outdir, batch_size = 1, gradient_accumulation_steps = 4, learning_rate = 5e-05, weight_decay = 0.00, num_epochs = 1):
 	args = Seq2SeqTrainingArguments(
 		 outdir,
 		 evaluation_strategy = "epoch",
@@ -132,28 +132,41 @@ if __name__ == "__main__":
 	model = loadmdl("facebook/m2m100_418M", len(tokenizer))
 	
 	log("Load dataset")
-	# data = load_dataset('masakhane/mafand', 'en-hau')
-	data = load_dataset("yelp_review_full")
+	data = load_dataset('masakhane/mafand', 'en-hau')
+	# data = load_dataset("yelp_review_full")
 
-	small_train_data = data['train'].shuffle(seed=42).select(range(100))
-	small_test_data = data['test'].shuffle(seed=42).select(range(10))
+	small_train_data = data['train'].shuffle(seed=42).select(range(10))
+	small_test_data = data['validation'].shuffle(seed=42).select(range(10))
+    
+    tokenizer.src_lang = 'hau'
+	tokenizer.tgt_lang = 'en'
 	
 	def tokenize_function(examples):
-		return tokenizer(examples["text"], padding="max_length", truncation=True)
+        ins = [ex[srcl] for ex in examples['translation']]
+		outs = [ex[tgtl] for ex in examples['translation']]
+		
+		result = tokenizer(ins, max_length=128, padding=True, truncation=True)
+		
+		with tokenizer.as_target_tokenizer():
+			labels = tokenizer(outs, max_length=128, padding=True, truncation=True)
+		
+		result['labels'] = labels['input_ids']
+		
+		return result
 
-	traindata = small_train_data.map(tokenize_function, batched=True)
-	devdata = small_test_data.map(tokenize_function, batched=True)
+	traindata = small_train_data.map(tokenize_function, batched=True, desc="tokenize_function", remove_columns=['translation'])
+	devdata = small_test_data.map(tokenize_function, batched=True, desc="tokenize_function files", remove_columns=['translation'])
 
-	traindata = traindata.remove_columns(["label"])
-	devdata = devdata.remove_columns(["label"])
-	traindata = traindata.add_column("decoder_input_ids", [t["input_ids"] for t in traindata])
-	devdata = devdata.add_column("decoder_input_ids", [t["input_ids"] for t in devdata])
-	traindata = traindata.add_column("labels", [t["input_ids"] for t in traindata])
-	devdata = devdata.add_column("labels", [t["input_ids"] for t in devdata])
+	# traindata = traindata.remove_columns(["label"])
+	# devdata = devdata.remove_columns(["label"])
+	# traindata = traindata.add_column("decoder_input_ids", [t["input_ids"] for t in traindata])
+	# devdata = devdata.add_column("decoder_input_ids", [t["input_ids"] for t in devdata])
+	# traindata = traindata.add_column("labels", [t["input_ids"] for t in traindata])
+	# devdata = devdata.add_column("labels", [t["input_ids"] for t in devdata])
 	print(traindata)
 	
 	log("Start training")
-	trainer = get_trainer(tokenizer, model, traindata, devdata, None, outdir, num_epochs = 10)
+	trainer = get_trainer(tokenizer, model, traindata, devdata, None, outdir, num_epochs = 1)
 	
 	log("Starting training")
 	trainer.train()
