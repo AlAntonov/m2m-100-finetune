@@ -137,13 +137,14 @@ if __name__ == "__main__":
 
 	small_train_data = data['train'].shuffle(seed=42).select(range(10))
 	small_test_data = data['validation'].shuffle(seed=42).select(range(10))
-    
-	tokenizer.src_lang = 'hau'
+
+	print(tokenizer)   
+	tokenizer.src_lang = 'ha'
 	tokenizer.tgt_lang = 'en'
 	
 	def tokenize_function(examples):
-		ins = [ex[srcl] for ex in examples['translation']]
-		outs = [ex[tgtl] for ex in examples['translation']]
+		ins = [ex['hau'] for ex in examples['translation']]
+		outs = [ex['en'] for ex in examples['translation']]
 		
 		result = tokenizer(ins, max_length=128, padding=True, truncation=True)
 		
