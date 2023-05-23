@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer, M2M100ForConditionalGeneration
 
 base_model = "facebook/m2m100_418M"
-local_model = "/content/checkpoint-2"
+local_model = "/content/checkpoint-2" # write your local model path here and replace base_model to local_model
 model = M2M100ForConditionalGeneration.from_pretrained(base_model)
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 
