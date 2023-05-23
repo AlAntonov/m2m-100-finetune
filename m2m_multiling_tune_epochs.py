@@ -4,8 +4,6 @@ import sys
 
 import json
 
-from tok import get_extended_m2m100_tokenizer as gettok
-
 from random import shuffle
 
 from transformers import AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq, Seq2SeqTrainingArguments, Seq2SeqTrainer, M2M100Tokenizer
