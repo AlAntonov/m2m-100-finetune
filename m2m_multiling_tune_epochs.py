@@ -7,65 +7,13 @@ import json
 from random import shuffle
 
 from transformers import AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq, Seq2SeqTrainingArguments, Seq2SeqTrainer, M2M100Tokenizer
-from transformers.tokenization_utils_base import BatchEncoding
 
-from datasets import load_dataset, load_metric, concatenate_datasets
+from datasets import load_dataset, load_metric
 
 from datetime import datetime
 
 def log(msg):
 	print(str(datetime.now()) + ": " + str(msg))
-
-def getlangs(fn):
-	with open(fn, 'r', encoding='utf-8') as fh:
-		firstline = fh.readline().strip()
-		
-		langs = sorted(json.loads(firstline)['translation'].keys())
-		
-		if langs[0] + "-" + langs[1] in fn:
-			return langs
-		elif langs[1] + "-" + langs[0] in fn:
-			return [langs[1], langs[0]]
-		else:
-			raise Exception("Filename should include the language pair in the form of xx-yy")
-
-def prep_one_dataset(filename, tokenizer, mdlid):
-	#ready_data = load_from_cache(filename, mdlid)
-	
-	#if not ready_data:
-	
-	dataset = load_dataset("json", data_files=filename )
-	
-	srcl, tgtl = getlangs(filename)
-	
-	tokenizer.src_lang = srcl
-	tokenizer.tgt_lang = tgtl
-	
-	def preproc_func(examples):
-		ins = [ex[srcl] for ex in examples['translation']]
-		outs = [ex[tgtl] for ex in examples['translation']]
-		
-		result = tokenizer(ins, max_length=128, padding=True, truncation=True)
-		
-		with tokenizer.as_target_tokenizer():
-			labels = tokenizer(outs, max_length=128, padding=True, truncation=True)
-		
-		result['labels'] = labels['input_ids']
-		
-		return result
-	
-	ready_data = dataset['train'].map(preproc_func, batched=True, desc="preproc files", remove_columns=['translation'])
-	
-	return ready_data
-
-def prepdata(filenames, tokenizer, mdlid):
-	filelist = filenames.split(":")
-	
-	datasets = [prep_one_dataset(f, tokenizer, mdlid) for f in filelist]
-	
-	meta = [ (f, d.num_rows) for f, d in zip(filelist, datasets) ]
-	
-	return concatenate_datasets(datasets), meta
 
 def get_trainer(tok, mdl, trainset, devset, devmeta, outdir, batch_size = 1, gradient_accumulation_steps = 4, learning_rate = 5e-05, weight_decay = 0.00, num_epochs = 10):
 	args = Seq2SeqTrainingArguments(
@@ -131,7 +79,6 @@ if __name__ == "__main__":
 	
 	log("Load dataset")
 	data = load_dataset('masakhane/mafand', 'en-hau')
-	# data = load_dataset("yelp_review_full")
 
 	small_train_data = data['train'].shuffle(seed=42).select(range(1000))
 	devlen = 100
@@ -155,13 +102,6 @@ if __name__ == "__main__":
 
 	traindata = small_train_data.map(tokenize_function, batched=True, desc="tokenize_function", remove_columns=['translation'])
 	devdata = small_test_data.map(tokenize_function, batched=True, desc="tokenize_function files", remove_columns=['translation'])
-
-	# traindata = traindata.remove_columns(["label"])
-	# devdata = devdata.remove_columns(["label"])
-	# traindata = traindata.add_column("decoder_input_ids", [t["input_ids"] for t in traindata])
-	# devdata = devdata.add_column("decoder_input_ids", [t["input_ids"] for t in devdata])
-	# traindata = traindata.add_column("labels", [t["input_ids"] for t in traindata])
-	# devdata = devdata.add_column("labels", [t["input_ids"] for t in devdata])
 	
 	log("Start training")
 	devmeta = [('file_dev', devlen)]
